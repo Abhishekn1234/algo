@@ -1,0 +1,47 @@
+import pandas as pd
+import requests
+from datetime import datetime
+
+class ScriptData:
+    
+    def __init__(self, api_key):
+        self.api_key = api_key
+        self.base_url = "https://www.alphavantage.co/query"
+        
+    def fetch_intraday_data(self, script):
+        data = requests.get(self.base_url, params={
+            "function": "TIME_SERIES_INTRADAY",
+            "symbol": script,
+            "interval": "5min",
+            "apikey": self.api_key
+        }).json()
+        return data["Time Series (5min)"]
+    
+    def convert_intraday_data(self, script):
+        data = self.fetch_intraday_data(script)
+        df = pd.DataFrame(columns=["timestamp", "open", "high", "low", "close", "volume"])
+        for time, values in data.items():
+            dt = datetime.strptime(time, "%Y-%m-%d %H:%M:%S")
+            row = {
+                "timestamp": dt,
+                "open": float(values["1. open"]),
+                "high": float(values["2. high"]),
+                "low": float(values["3. low"]),
+                "close": float(values["4. close"]),
+                "volume": int(values["5. volume"])
+            }
+            df = df.append(row, ignore_index=True)
+        return df
+    
+    def __getitem__(self, script):
+        return self.convert_intraday_data(script)
+    
+    def __setitem__(self, script, value):
+        raise NotImplementedError("ScriptData object does not support item assignment")
+    
+    def __contains__(self, script):
+        try:
+            self.fetch_intraday_data(script)
+            return True
+        except:
+            return False
